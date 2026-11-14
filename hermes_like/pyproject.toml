@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68,<83"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-like-starter"
+version = "0.1.0"
+description = "A small, extensible, tool-using assistant scaffold."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "openai>=1.40,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+hermes-like = "hermes_like.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
