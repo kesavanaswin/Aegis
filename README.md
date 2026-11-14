@@ -1,4 +1,6 @@
-<div align="center">
+<p align="center">
+  <img src="assets/banner.png" alt="Aegis" width="100%">
+</p>
 
 # Aegis
 
