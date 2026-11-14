@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="700" viewBox="0 0 1600 700" role="img" aria-labelledby="title desc">
+  <title id="title">Aegis banner</title>
+  <desc id="desc">A dark banner with large gold and orange text reading AEGIS-AGENT.</desc>
+  <defs>
+    <linearGradient id="goldGradient" x1="0%" x2="100%" y1="0%" y2="0%">
+      <stop offset="0%" stop-color="#f7dc68"/>
+      <stop offset="35%" stop-color="#f5d85d"/>
+      <stop offset="60%" stop-color="#f3c277"/>
+      <stop offset="100%" stop-color="#d8904b"/>
+    </linearGradient>
+    <linearGradient id="warmGlow" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#f5d763"/>
+      <stop offset="50%" stop-color="#de9f4b"/>
+      <stop offset="100%" stop-color="#c5773b"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000000" flood-opacity="0.4"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="700" fill="#111821"/>
+
+  <g filter="url(#shadow)">
+    <text x="50%" y="58%" text-anchor="middle"
+          font-size="286" font-weight="900"
+          font-family="'Courier New', 'Lucida Console', monospace"
+          letter-spacing="2" fill="url(#goldGradient)"
+          stroke="#120f0d" stroke-width="10" paint-order="stroke" dominant-baseline="middle">AEGIS-AGENT</text>
+
+    <text x="50%" y="58%" text-anchor="middle"
+          font-size="286" font-weight="900"
+          font-family="'Courier New', 'Lucida Console', monospace"
+          letter-spacing="2" fill="none" stroke="#f7dc66" stroke-width="5"
+          dominant-baseline="middle" opacity="0.75">AEGIS-AGENT</text>
+  </g>
+
+  <g opacity="0.25">
+    <rect x="60" y="300" width="120" height="22" fill="#e4b96f"/>
+    <rect x="180" y="300" width="70" height="22" fill="#e4b96f"/>
+    <rect x="345" y="340" width="90" height="22" fill="#e0a85f"/>
+    <rect x="590" y="320" width="110" height="22" fill="#ebc365"/>
+    <rect x="860" y="300" width="100" height="22" fill="#f1cf73"/>
+    <rect x="1140" y="300" width="110" height="22" fill="#e9b764"/>
+    <rect x="1370" y="330" width="120" height="22" fill="#e0a45d"/>
+  </g>
+
+  <g opacity="0.20">
+    <path d="M 0 410 L 1600 410 L 1600 485 L 0 485 Z" fill="url(#warmGlow)"/>
+    <path d="M 0 530 L 1600 530 L 1600 620 L 0 620 Z" fill="#d27f4a" opacity="0.55"/>
+  </g>
+</svg>
