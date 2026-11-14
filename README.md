@@ -6,9 +6,11 @@
 
 ### A practical home for defensive security agents and Hermes-style agent experiments
 
-[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Security-first](https://img.shields.io/badge/Default-read--only%20%26%20human--review-blue)](#security-first-by-design)
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
+  <a href="#security-first-by-design"><img src="https://img.shields.io/badge/Default-read--only%20%26%20human--review-blue?style=for-the-badge" alt="Security-first: Default read-only & human-review"></a>
+</p>
 
 **Aegis is an experimental agent workspace.** It brings together an offline-first SOC triage prototype and a small Hermes-inspired, tool-using assistant scaffold. It is an independent project—not an official Nous Research product or a replacement for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
