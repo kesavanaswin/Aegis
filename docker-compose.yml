@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  soc-agent:
+    build: .
+    container_name: soc-agent
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    networks:
+      - soc-net
+    volumes:
+      - ./data:/data
+
+  postgres:
+    image: postgres:16
+    container_name: soc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: soc
+      POSTGRES_USER: soc
+      POSTGRES_PASSWORD: socpass
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - soc-net
+
+volumes:
+  postgres-data:
+
+networks:
+  soc-net:
+    driver: bridge
