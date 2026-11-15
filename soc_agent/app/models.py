@@ -87,8 +87,42 @@ class InvestigationResult(BaseModel):
 class ActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    case_id: str | None = Field(default=None, min_length=1, max_length=200)
     action: str = Field(..., min_length=1, max_length=200)
     target: str = Field(..., min_length=1, max_length=300)
     reason: str = Field(..., min_length=1, max_length=2000)
     risk: Literal["low", "medium", "high"] = "medium"
-    required_role: str = "soc_analyst"
+
+
+class AssetInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    asset_id: str = Field(..., min_length=1, max_length=120)
+    name: str = Field(..., min_length=1, max_length=240)
+    asset_type: Literal["host", "ip", "domain", "service", "cloud_resource"]
+    owner: str = Field(default="", max_length=200)
+    environment: str = Field(default="unknown", max_length=100)
+    criticality: Severity = Severity.medium
+
+
+VulnerabilityStatus = Literal["open", "in_progress", "accepted", "remediated", "false_positive"]
+
+
+class VulnerabilityInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    vulnerability_id: str = Field(..., min_length=1, max_length=120)
+    asset_id: str = Field(..., min_length=1, max_length=120)
+    case_id: str | None = Field(default=None, min_length=1, max_length=200)
+    title: str = Field(..., min_length=1, max_length=300)
+    description: str = Field(default="", max_length=4000)
+    severity: Severity
+    status: VulnerabilityStatus = "open"
+    source: str = Field(default="analyst", min_length=1, max_length=120)
+    external_reference: str | None = Field(default=None, max_length=200)
+
+
+class VulnerabilityStatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: VulnerabilityStatus

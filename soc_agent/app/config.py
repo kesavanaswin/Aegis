@@ -10,6 +10,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 APP_API_TOKEN = os.environ.get("APP_API_TOKEN", "").strip()
+APP_API_ROLE = os.environ.get("APP_API_ROLE", "soc_analyst").strip()
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "openai_compatible").strip().lower()
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
