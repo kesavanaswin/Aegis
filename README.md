@@ -12,7 +12,7 @@
   <a href="#security-first-by-design"><img src="https://img.shields.io/badge/Default-read--only%20%26%20human--review-blue?style=for-the-badge" alt="Security-first: Default read-only & human-review"></a>
 </p>
 
-**Aegis is an experimental agent workspace.** It brings together an offline-first SOC triage prototype and a small Hermes-inspired, tool-using assistant scaffold. It is an independent project—not an official Nous Research product or a replacement for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+**Aegis is an experimental security workspace.** It includes a defensive SOC workbench for cases, assets, vulnerability findings, and analyst approvals, alongside standalone Hermes-inspired agent experiments. The components are learning prototypes, not a production security platform. Aegis is independent—not an official Nous Research product or a replacement for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
 </div>
 
@@ -24,7 +24,7 @@
 | --- | --- | --- |
 | [`hermes_starter/`](hermes_starter/) | Small model-driven assistant with a tool registry, allowlisted toolsets, opt-in Python plugins, SQLite session history, CLI, and offline tests. | [Starter guide](hermes_starter/README.md) |
 | [`hermes_like/`](hermes_like/) | Minimal assistant scaffold with a command-line interface, OpenAI-compatible provider, local conversation history, and a tiny safe tool set. | [Scaffold guide](hermes_like/README.md) |
-| [`soc_agent/`](soc_agent/) | Defensive SOC alert-triage and policy-gate prototype. Its example adapters are placeholders; it is not connected to production security systems. | [SOC agent guide](soc_agent/README.md) |
+| [`soc_agent/`](soc_agent/) | Defense-first SOC workbench for cases, asset inventory, vulnerability findings, triage, and approval tracking. Integrations are placeholders and response actions are not executed. | [SOC workbench guide](soc_agent/README.md) |
 
 These are prototypes with different goals, not one integrated production application. Choose one subproject and follow its own setup instructions.
 
@@ -77,16 +77,38 @@ The tests use a fake provider; they do not need a model API key or make model ca
 
 ## SOC workbench
 
-The SOC prototype now includes a defense-first workbench for cases, assets, vulnerability findings, and approval requests. It is a learning and design reference—not a production SOC tool.
+The SOC workbench provides:
 
-- The bundled tool adapters may return simulated/example data and are **not real SIEM, EDR, threat-intelligence, identity, or firewall integrations**.
-- Do not provide production credentials or connect it to live response systems without independent security review and implementation work.
-- Approval decisions are recorded for review; the prototype does not execute containment or other response actions.
-- The single bearer token is a shared service identity, not multi-user authentication. `APP_API_ROLE` is a server-side role applied to all API callers; protect it and the dashboard accordingly.
-- Treat logs, emails, tickets, and threat-intelligence text as untrusted input.
-- Synthetic tests and mock model runs do not establish real-model safety or operational readiness.
+- A dashboard for alert cases, assets, vulnerability findings, and pending approvals.
+- Case-linked SQLite records, finding lifecycle statuses, and audit events for approval decisions.
+- A bearer-token-protected API with a server-configured role for requesting approvals.
 
-See [`soc_agent/README.md`](soc_agent/README.md) for what is implemented and its limitations.
+### Quick start
+
+From the repository root, create a virtual environment and install the dependencies:
+
+```text
+python -m venv .venv
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+# macOS / Linux
+# source .venv/bin/activate
+python -m pip install -r requirements.txt
+# Windows PowerShell
+Copy-Item .env.example .env
+# macOS / Linux
+# cp .env.example .env
+```
+
+Edit `.env`: set a private `APP_API_TOKEN` and configure `OPENAI_API_KEY` (or `OPENAI_BASE_URL` for an OpenAI-compatible provider). Then start the API:
+
+```powershell
+python -m uvicorn soc_agent.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Open [http://127.0.0.1:8000/dashboard](http://127.0.0.1:8000/dashboard) and enter the token. `APP_API_ROLE` defaults to `soc_analyst`; high-risk approval requests require the server-side role `incident_manager`. See [`soc_agent/README.md`](soc_agent/README.md) for API details and limitations.
+
+This is a prototype, not a production SOC tool. The example SIEM, EDR, threat-intelligence, and identity adapters return simulated data. Approval decisions are recorded for review; the workbench does not scan targets or execute response actions. The shared bearer token and role are not multi-user authentication, so do not expose the dashboard publicly or use production credentials without independent security review.
 
 ## Security-first by design
 
