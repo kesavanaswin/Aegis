@@ -75,13 +75,14 @@ python -m pytest -q
 
 The tests use a fake provider; they do not need a model API key or make model calls.
 
-## SOC triage prototype
+## SOC workbench
 
-The SOC prototype explores a defensive workflow: supplied alert data, evidence summaries, read-only-style enrichment placeholders, and human review for response recommendations. It is a learning and design reference—not a production SOC tool.
+The SOC prototype now includes a defense-first workbench for cases, assets, vulnerability findings, and approval requests. It is a learning and design reference—not a production SOC tool.
 
 - The bundled tool adapters may return simulated/example data and are **not real SIEM, EDR, threat-intelligence, identity, or firewall integrations**.
 - Do not provide production credentials or connect it to live response systems without independent security review and implementation work.
-- Keep containment and other state-changing actions behind your organization’s approval process.
+- Approval decisions are recorded for review; the prototype does not execute containment or other response actions.
+- The single bearer token is a shared service identity, not multi-user authentication. `APP_API_ROLE` is a server-side role applied to all API callers; protect it and the dashboard accordingly.
 - Treat logs, emails, tickets, and threat-intelligence text as untrusted input.
 - Synthetic tests and mock model runs do not establish real-model safety or operational readiness.
 
@@ -105,7 +106,7 @@ Aegis prototypes are intended to explore safe agent patterns, not grant models a
 .
 ├── hermes_starter/   # Tool-driven agent starter and offline tests
 ├── hermes_like/      # Minimal assistant scaffold
-├── soc_agent/        # Defensive SOC triage prototype
+├── soc_agent/        # Defensive SOC workbench and triage prototype
 └── tests/            # Tests for the root SOC prototype
 ```
 
