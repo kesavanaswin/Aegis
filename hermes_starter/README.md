@@ -29,6 +29,17 @@ The provider uses the OpenAI Chat Completions API. Set `OPENAI_BASE_URL` for an 
 
 Conversation records are stored in `~/.hermes-starter/sessions.sqlite3` by default. Set `HERMES_STARTER_HOME` to use a different local data directory. Prompts go to the configured model provider; do not send confidential incident data unless your data-handling rules permit it.
 
+## Build a Windows executable
+
+Build on Windows with Python 3.11 or newer. From this directory, install the dependencies and create a single-file console executable:
+
+```powershell
+python -m pip install -r requirements.txt
+python -m PyInstaller --clean --noconfirm pyinstaller.spec
+```
+
+The executable is written to `dist/aegis-hermes-starter.exe`. Set `OPENAI_API_KEY` in the environment before launching it. The executable stores session history in the same per-user location as the Python CLI; it does not bundle credentials or conversation data.
+
 ## Offline tests
 
 ```bash
