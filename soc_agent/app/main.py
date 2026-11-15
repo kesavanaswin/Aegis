@@ -3,15 +3,25 @@ from __future__ import annotations
 import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .adapters import ElasticAdapter, CrowdStrikeAdapter, VirusTotalAdapter, OktaAdapter
-from .config import APP_API_TOKEN, ELASTIC_URL, ELASTIC_API_KEY, CROWDSTRIKE_CLIENT_ID, CROWDSTRIKE_CLIENT_SECRET, VIRUSTOTAL_API_KEY, OKTA_DOMAIN, OKTA_API_TOKEN
-from .db import ensure_db, save_case, get_case, save_investigation, save_approval, log_event
-from .models import AlertInput, ActionRequest, InvestigationResult
+from .adapters import CrowdStrikeAdapter, ElasticAdapter, OktaAdapter, VirusTotalAdapter
+from .config import (
+    APP_API_TOKEN,
+    CROWDSTRIKE_CLIENT_ID,
+    CROWDSTRIKE_CLIENT_SECRET,
+    ELASTIC_API_KEY,
+    ELASTIC_URL,
+    OKTA_API_TOKEN,
+    OKTA_DOMAIN,
+    VIRUSTOTAL_API_KEY,
+)
+from .db import ensure_db, get_case, list_cases, log_event, save_approval, save_case, save_investigation
+from .graph import build_graph
+from .models import ActionRequest, AlertInput, InvestigationResult
 from .orchestration import triage_with_llm
 from .policy import validate_action
-from .graph import build_graph
 
 app = FastAPI(title="Argus SOC Agent", version="1.0.0")
 bearer = HTTPBearer()
@@ -29,12 +39,49 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard() -> str:
+    cases = list_cases(limit=10)
+    rows = "".join(
+        f"<tr><td>{case['case_id']}</td><td>{case['created_at']}</td><td>{case['payload'].get('alert_type', 'unknown')}</td></tr>"
+        for case in cases
+    )
+    return f"""
+    <html>
+      <head><title>Argus SOC Dashboard</title></head>
+      <body style="font-family: sans-serif; margin: 2rem; background: #0b1220; color: #e5e7eb;">
+        <h1>Argus SOC Dashboard</h1>
+        <p>OpenAI-compatible provider: enabled via environment configuration.</p>
+        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%;">
+          <thead>
+            <tr><th>Case ID</th><th>Created</th><th>Alert Type</th></tr>
+          </thead>
+          <tbody>{rows or '<tr><td colspan="3">No cases yet</td></tr>'}</tbody>
+        </table>
+      </body>
+    </html>
+    """
+
+
+@app.get("/cases", dependencies=[Depends(auth)])
+def get_cases():
+    return {"cases": list_cases(limit=50)}
+
+
 @app.post("/cases", dependencies=[Depends(auth)])
 def ingest_case(alert: AlertInput):
     alert.ensure_unique_ids()
     save_case(alert.case_id, alert.model_dump(mode="json"))
     log_event(alert.case_id, "case_received", {"alert_type": alert.alert_type, "source": alert.source})
     return {"case_id": alert.case_id, "status": "received"}
+
+
+@app.get("/cases/{case_id}", dependencies=[Depends(auth)])
+def get_case_detail(case_id: str):
+    stored = get_case(case_id)
+    if not stored:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return stored
 
 
 @app.post("/cases/{case_id}/triage", response_model=InvestigationResult, dependencies=[Depends(auth)])
