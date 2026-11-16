@@ -90,7 +90,15 @@ The SOC prototype now includes a defense-first workbench for cases, assets, vuln
 
 See [`soc_agent/README.md`](soc_agent/README.md) for what is implemented and its limitations.
 
-The SOC workbench can use OpenAI or Anthropic for case triage. Configure the provider keys in the repository-root `.env` file; after connecting to the workbench, choose a configured provider from the AI provider menu and run triage on a case. Provider selection is per dashboard session, while API keys remain on the server.
+For SOC case triage, configure at least one provider key in the repository-root `.env` file:
+
+```dotenv
+OPENAI_API_KEY=your-openai-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+AI_PROVIDER=openai
+```
+
+After connecting to the SOC dashboard, choose a configured provider from the AI provider menu; the dashboard checks the connection and uses that provider when you run triage on a case. Set `OPENAI_BASE_URL` to use an OpenAI-compatible endpoint. Provider selection lasts for the current dashboard session, and API keys remain on the server—never embed or commit them.
 
 ## Security-first by design
 
