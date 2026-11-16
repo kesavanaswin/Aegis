@@ -58,6 +58,8 @@ python -m agent.cli
 
 To select an OpenAI-compatible endpoint, set `OPENAI_BASE_URL`. Set `HERMES_MODEL` to choose a model; the default is `gpt-4o-mini`.
 
+For local development, you can instead put `OPENAI_API_KEY=your-key` in a repository-root `.env` file. The starter loads it automatically; `.env` is ignored by Git. Never commit API keys or embed them in the application build.
+
 To explicitly load the bundled example plugin:
 
 ```bash
@@ -87,6 +89,8 @@ The SOC prototype now includes a defense-first workbench for cases, assets, vuln
 - Synthetic tests and mock model runs do not establish real-model safety or operational readiness.
 
 See [`soc_agent/README.md`](soc_agent/README.md) for what is implemented and its limitations.
+
+The SOC workbench can use OpenAI or Anthropic for case triage. Configure the provider keys in the repository-root `.env` file; after connecting to the workbench, choose a configured provider from the AI provider menu and run triage on a case. Provider selection is per dashboard session, while API keys remain on the server.
 
 ## Security-first by design
 

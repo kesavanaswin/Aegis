@@ -10,7 +10,7 @@ From the repository root, install the root dependencies and configure `.env`:
 python -m pip install -r requirements.txt
 ```
 
-Set `APP_API_TOKEN` to a private token and configure an AI provider with `OPENAI_API_KEY` (or `OPENAI_BASE_URL` for an OpenAI-compatible endpoint). The default `APP_API_ROLE=soc_analyst` can request low-risk ticket creation. The server-side role `incident_manager` is required for high-risk approval requests.
+Set `APP_API_TOKEN` to a private token and configure `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in `.env`. The dashboard offers whichever providers are configured; choosing one checks the connection, and case triage uses that selection. `OPENAI_BASE_URL` can point to an OpenAI-compatible endpoint, and `AI_PROVIDER` sets the default selection. Keep keys on the server and never embed them in the application build. The default `APP_API_ROLE=soc_analyst` can request low-risk ticket creation. The server-side role `incident_manager` is required for high-risk approval requests.
 
 Start the API and open the dashboard:
 

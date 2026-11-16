@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import uuid
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -11,6 +11,7 @@ from .adapters import CrowdStrikeAdapter, ElasticAdapter, OktaAdapter, VirusTota
 from .config import (
     APP_API_TOKEN,
     APP_API_ROLE,
+    DEFAULT_PROVIDER,
     CROWDSTRIKE_CLIENT_ID,
     CROWDSTRIKE_CLIENT_SECRET,
     ELASTIC_API_KEY,
@@ -18,6 +19,9 @@ from .config import (
     OKTA_API_TOKEN,
     OKTA_DOMAIN,
     VIRUSTOTAL_API_KEY,
+    create_ai_client,
+    list_ai_providers,
+    verify_ai_connection,
 )
 from .db import (
     asset_exists,
@@ -67,6 +71,23 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/ai/providers", dependencies=[Depends(auth)])
+def get_ai_providers():
+    return {"providers": list_ai_providers(), "default_provider": DEFAULT_PROVIDER}
+
+
+@app.post("/ai/connect", dependencies=[Depends(auth)])
+def connect_ai_provider(provider: str = Body(embed=True)):
+    try:
+        selected, model, client = create_ai_client(provider)
+        verify_ai_connection(selected, client)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    return {"provider": selected, "model": model, "status": "ready"}
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard() -> str:
     return f"""
@@ -82,6 +103,7 @@ def dashboard() -> str:
           section, .panel {{ background: #111c2f; border: 1px solid #26364f; border-radius: 12px; padding: 1rem; }}
           .connect, .metrics, .grid, .forms {{ display: grid; gap: 1rem; }}
           .connect {{ grid-template-columns: minmax(220px, 2fr) minmax(180px, 1fr) auto; align-items: end; }}
+          .ai-provider {{ margin: 1rem 0; }}
           .metrics {{ grid-template-columns: repeat(4, minmax(130px, 1fr)); margin: 1rem 0; }}
           .grid, .forms {{ grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 1rem 0; }}
           .metric strong {{ display: block; font-size: 1.8rem; color: #93c5fd; }}
@@ -111,8 +133,14 @@ def dashboard() -> str:
             <section class="metric">Open findings<strong id="finding-count">0</strong></section>
             <section class="metric">Pending approvals<strong id="approval-count">0</strong></section>
           </div>
+          <section class="ai-provider">
+            <h2>AI provider</h2>
+            <label for="ai-provider">Choose a configured provider</label>
+            <select id="ai-provider" disabled><option>Connect to load providers</option></select>
+            <p id="ai-status" class="muted" role="status">Provider credentials are configured by the app owner.</p>
+          </section>
           <div class="grid">
-            <section><h2>Cases</h2><div class="scroll"><table><thead><tr><th>Case</th><th>Alert</th><th>Severity</th><th>Host / User</th></tr></thead><tbody id="cases"></tbody></table></div></section>
+            <section><h2>Cases</h2><div class="scroll"><table><thead><tr><th>Case</th><th>Alert</th><th>Severity</th><th>Host / User</th><th>AI triage</th></tr></thead><tbody id="cases"></tbody></table></div></section>
             <section><h2>Assets</h2><div class="scroll"><table><thead><tr><th>Asset</th><th>Type</th><th>Owner</th><th>Criticality</th></tr></thead><tbody id="assets"></tbody></table></div></section>
             <section><h2>Vulnerability findings</h2><div class="scroll"><table><thead><tr><th>Finding</th><th>Asset</th><th>Severity</th><th>Status</th><th>Case</th></tr></thead><tbody id="vulnerabilities"></tbody></table></div></section>
             <section><h2>Approval inbox</h2><div class="scroll"><table><thead><tr><th>Action</th><th>Target</th><th>Risk</th><th>Case</th><th>Reason</th><th>Decision</th></tr></thead><tbody id="approvals"></tbody></table></div></section>
@@ -155,6 +183,7 @@ def dashboard() -> str:
         </div>
         <script>
           let apiToken = "";
+          let selectedAiProvider = "";
           const byId = (id) => document.getElementById(id);
           const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}}[char]));
           function message(text, isError = false) {{ byId("message").textContent = text; byId("message").style.color = isError ? "#fca5a5" : "#86efac"; }}
@@ -176,7 +205,7 @@ def dashboard() -> str:
             byId("asset-count").textContent = summary.assets;
             byId("finding-count").textContent = summary.open_vulnerabilities;
             byId("approval-count").textContent = summary.pending_approvals;
-            byId("cases").innerHTML = cases.cases.map((item) => `<tr>${{cell(item.case_id)}}${{cell(item.payload.alert_type)}}${{cell(item.payload.severity)}}${{cell([item.payload.host, item.payload.user].filter(Boolean).join(" / "))}}</tr>`).join("") || "<tr><td colspan='4'>No cases</td></tr>";
+            byId("cases").innerHTML = cases.cases.map((item) => `<tr>${{cell(item.case_id)}}${{cell(item.payload.alert_type)}}${{cell(item.payload.severity)}}${{cell([item.payload.host, item.payload.user].filter(Boolean).join(" / "))}}<td><button class="secondary" data-triage="${{escapeHtml(item.case_id)}}" ${{selectedAiProvider ? "" : "disabled"}}>Run triage</button></td></tr>`).join("") || "<tr><td colspan='5'>No cases</td></tr>";
             byId("assets").innerHTML = assets.assets.map((item) => `<tr>${{cell(item.name)}}${{cell(item.asset_type)}}${{cell(item.owner)}}${{cell(item.criticality)}}</tr>`).join("") || "<tr><td colspan='4'>No assets</td></tr>";
             byId("vulnerabilities").innerHTML = findings.vulnerabilities.map((item) => {{
               const statuses = ["open", "in_progress", "accepted", "remediated", "false_positive"];
@@ -185,10 +214,60 @@ def dashboard() -> str:
             }}).join("") || "<tr><td colspan='5'>No findings</td></tr>";
             byId("approvals").innerHTML = approvals.approvals.map((item) => `<tr>${{cell(item.action)}}${{cell(item.target)}}${{cell(item.risk)}}${{cell(item.case_id || "-")}}${{cell(item.reason)}}<td><button data-approval="${{escapeHtml(item.approval_id)}}" data-decision="approved">Approve</button> <button class="secondary" data-approval="${{escapeHtml(item.approval_id)}}" data-decision="rejected">Reject</button></td></tr>`).join("") || "<tr><td colspan='6'>No pending approvals</td></tr>";
           }}
+          async function selectAiProvider(provider) {{
+            const result = await api("/ai/connect", {{ method: "POST", body: JSON.stringify({{ provider }}) }});
+            selectedAiProvider = result.provider;
+            byId("ai-status").textContent = result.provider + " is ready (" + result.model + "). Select a case to run triage.";
+            await refresh();
+          }}
+          async function loadAiProviders() {{
+            const result = await api("/ai/providers");
+            const select = byId("ai-provider");
+            select.replaceChildren();
+            for (const provider of result.providers) {{
+              const option = document.createElement("option");
+              option.value = provider.id;
+              option.textContent = provider.name + " (" + provider.model + ")";
+              select.append(option);
+            }}
+            select.disabled = result.providers.length === 0;
+            if (!result.providers.length) {{
+              select.add(new Option("No configured providers", ""));
+              byId("ai-status").textContent = "The app owner must configure OPENAI_API_KEY or ANTHROPIC_API_KEY in .env.";
+              return;
+            }}
+            const defaultProvider = result.providers.some((item) => item.id === result.default_provider)
+              ? result.default_provider : "";
+            select.value = defaultProvider;
+            selectedAiProvider = "";
+            if (defaultProvider) await selectAiProvider(defaultProvider);
+            else byId("ai-status").textContent = "Choose a provider to connect.";
+          }}
           byId("connect").addEventListener("submit", async (event) => {{
             event.preventDefault(); apiToken = byId("token").value;
             try {{ await refresh(); byId("workbench").hidden = false; byId("token").value = ""; message("Connected."); }}
-            catch (error) {{ apiToken = ""; message(error.message, true); }}
+            catch (error) {{ apiToken = ""; message(error.message, true); return; }}
+            try {{ await loadAiProviders(); }}
+            catch (error) {{ message(error.message, true); }}
+          }});
+          byId("ai-provider").addEventListener("change", async (event) => {{
+            selectedAiProvider = "";
+            try {{ await selectAiProvider(event.currentTarget.value); message("AI provider ready."); }}
+            catch (error) {{ byId("ai-status").textContent = error.message; message(error.message, true); await refresh(); }}
+          }});
+          byId("cases").addEventListener("click", async (event) => {{
+            const button = event.target.closest("button[data-triage]");
+            if (!button || !selectedAiProvider) return;
+            button.disabled = true;
+            try {{
+              const params = new URLSearchParams({{ provider: selectedAiProvider }});
+              const result = await api(`/cases/${{encodeURIComponent(button.dataset.triage)}}/triage?${{params}}`, {{ method: "POST" }});
+              message("Triage complete for " + button.dataset.triage + ": " + result.verdict + ".");
+            }} catch (error) {{
+              message(error.message, true);
+            }} finally {{
+              button.disabled = false;
+            }}
           }});
           byId("asset-form").addEventListener("submit", async (event) => {{
             event.preventDefault();
@@ -312,7 +391,7 @@ def get_case_detail(case_id: str):
 
 
 @app.post("/cases/{case_id}/triage", response_model=InvestigationResult, dependencies=[Depends(auth)])
-def triage_case(case_id: str):
+def triage_case(case_id: str, provider: str | None = Query(default=None)):
     stored = get_case(case_id)
     if not stored:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -320,7 +399,12 @@ def triage_case(case_id: str):
     alert = AlertInput.model_validate(stored)
     graph = build_graph()
     graph_result = graph.invoke({"alert": alert, "evidence": [], "findings": [], "recommendations": [], "verdict": "", "confidence": 0.0})
-    result = triage_with_llm(alert, graph_result.get("evidence", []))
+    try:
+        result = triage_with_llm(alert, graph_result.get("evidence", []), provider=provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     save_investigation(case_id, result.model_dump(mode="json"))
     log_event(case_id, "triage_completed", {"verdict": result.verdict.value, "confidence": result.confidence})
     return result

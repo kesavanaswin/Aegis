@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -36,23 +37,64 @@ OKTA_API_TOKEN = os.environ.get("OKTA_API_TOKEN", "").strip()
 if not APP_API_TOKEN:
     raise RuntimeError("Set APP_API_TOKEN")
 
-if AI_PROVIDER in {"anthropic", "claude"}:
+
+def normalize_ai_provider(provider: str | None = None) -> str:
+    selected = (AI_PROVIDER if provider is None else provider).strip().lower()
+    if selected in {"openai", "openai_compatible"}:
+        return "openai"
+    if selected in {"anthropic", "claude"}:
+        return "anthropic"
+    raise ValueError(f"Unsupported AI provider '{selected}'. Choose 'openai' or 'anthropic'.")
+
+
+DEFAULT_PROVIDER = normalize_ai_provider()
+DEFAULT_MODEL = ANTHROPIC_MODEL if DEFAULT_PROVIDER == "anthropic" else (MODEL_NAME or OPENAI_MODEL)
+
+
+def list_ai_providers() -> list[dict[str, str]]:
+    providers = []
+    if OPENAI_API_KEY or OPENAI_BASE_URL:
+        providers.append({"id": "openai", "name": "OpenAI", "model": MODEL_NAME or OPENAI_MODEL})
+    if ANTHROPIC_API_KEY:
+        providers.append({"id": "anthropic", "name": "Anthropic", "model": ANTHROPIC_MODEL})
+    return providers
+
+
+def create_ai_client(provider: str | None = None) -> tuple[str, str, Any]:
+    selected = normalize_ai_provider(provider)
+    if selected == "openai":
+        if not (OPENAI_API_KEY or OPENAI_BASE_URL):
+            raise RuntimeError("Configure OPENAI_API_KEY or OPENAI_BASE_URL in .env.")
+        try:
+            from openai import OpenAI
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("Install OpenAI support with pip install -r requirements.txt") from exc
+        return selected, MODEL_NAME or OPENAI_MODEL, OpenAI(
+            api_key=OPENAI_API_KEY or "dummy-key",
+            base_url=OPENAI_BASE_URL or None,
+        )
+
     if not ANTHROPIC_API_KEY:
-        raise RuntimeError("Set ANTHROPIC_API_KEY")
-    DEFAULT_MODEL = ANTHROPIC_MODEL
+        raise RuntimeError("Configure ANTHROPIC_API_KEY in .env.")
     try:
         import anthropic
     except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("Install anthropic support with pip install -r requirements.txt") from exc
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-elif AI_PROVIDER in {"openai", "openai_compatible"}:
-    if not (OPENAI_API_KEY or OPENAI_BASE_URL):
-        raise RuntimeError("Set OPENAI_API_KEY or OPENAI_BASE_URL")
-    DEFAULT_MODEL = MODEL_NAME or OPENAI_MODEL
+        raise RuntimeError("Install Anthropic support with pip install -r requirements.txt") from exc
+    return selected, ANTHROPIC_MODEL, anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+
+
+def verify_ai_connection(provider: str, client: Any) -> None:
+    if provider == "openai":
+        from openai import APIError
+    elif provider == "anthropic":
+        from anthropic import APIError
+    else:
+        raise ValueError(f"Unsupported AI provider '{provider}'.")
+
     try:
-        from openai import OpenAI
-    except ImportError as exc:  # pragma: no cover
-        raise RuntimeError("Install openai support with pip install -r requirements.txt") from exc
-    client = OpenAI(api_key=OPENAI_API_KEY or "dummy-key", base_url=OPENAI_BASE_URL or None)
-else:
-    raise RuntimeError(f"Unsupported AI_PROVIDER '{AI_PROVIDER}'. Use 'openai_compatible' or 'anthropic'.")
+        client.models.list()
+    except APIError as exc:
+        raise RuntimeError(
+            f"Could not connect to {provider}: {type(exc).__name__}. "
+            "Check the configured API key, model access, and network."
+        ) from exc

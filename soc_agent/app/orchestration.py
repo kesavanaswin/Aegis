@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from .config import AI_PROVIDER, DEFAULT_MODEL, client
+from .config import create_ai_client
 from .models import AlertInput, InvestigationResult
 
 
@@ -15,7 +15,11 @@ def _normalize_json_text(raw: str) -> str:
     return cleaned.strip()
 
 
-def triage_with_llm(alert: AlertInput, evidence_context: list[dict]) -> InvestigationResult:
+def triage_with_llm(
+    alert: AlertInput,
+    evidence_context: list[dict],
+    provider: str | None = None,
+) -> InvestigationResult:
     payload = {
         "case_id": alert.case_id,
         "alert_type": alert.alert_type,
@@ -47,9 +51,10 @@ Rules:
 - Never output Markdown.
 """
 
-    if AI_PROVIDER in {"openai", "openai_compatible"}:
+    provider_name, model, client = create_ai_client(provider)
+    if provider_name == "openai":
         response = client.chat.completions.create(
-            model=DEFAULT_MODEL,
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
@@ -59,7 +64,7 @@ Rules:
         raw = response.choices[0].message.content or "{}"
     else:
         response = client.messages.create(
-            model=DEFAULT_MODEL,
+            model=model,
             max_tokens=2000,
             system=system_prompt,
             messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],

@@ -10,7 +10,8 @@ os.environ["APP_API_ROLE"] = "soc_analyst"
 os.environ.setdefault("OPENAI_API_KEY", "workbench-test-key")
 os.environ["DATABASE_PATH"] = str(Path(tempfile.gettempdir()) / f"aegis-workbench-import-{os.getpid()}.sqlite3")
 
-from soc_agent.app import db
+from soc_agent.app import config, db
+import soc_agent.app.main as main_module
 from soc_agent.app.main import app
 
 
@@ -127,3 +128,62 @@ def test_dashboard_is_available_without_exposing_case_data(client):
     assert response.status_code == 200
     assert "Aegis SOC Workbench" in response.text
     assert "CASE-200" not in response.text
+    assert "ai-provider" in response.text
+    assert "Run triage" in response.text
+
+
+def test_ai_provider_options_only_include_configured_providers(client, monkeypatch):
+    monkeypatch.setattr(config, "OPENAI_API_KEY", "test-openai-key")
+    monkeypatch.setattr(config, "OPENAI_BASE_URL", "")
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "")
+
+    response = client.get("/ai/providers")
+
+    assert response.status_code == 200
+    assert [provider["id"] for provider in response.json()["providers"]] == ["openai"]
+    assert "test-openai-key" not in response.text
+
+
+def test_ai_connect_uses_selected_provider(client, monkeypatch):
+    verified = []
+    monkeypatch.setattr(
+        main_module,
+        "create_ai_client",
+        lambda provider: (provider, "test-model", object()),
+    )
+    monkeypatch.setattr(
+        main_module,
+        "verify_ai_connection",
+        lambda provider, client: verified.append(provider),
+    )
+
+    response = client.post("/ai/connect", json={"provider": "anthropic"})
+
+    assert response.status_code == 200
+    assert verified == ["anthropic"]
+    assert response.json() == {
+        "provider": "anthropic",
+        "model": "test-model",
+        "status": "ready",
+    }
+
+
+def test_case_triage_uses_selected_provider(client, monkeypatch):
+    case_id = create_case(client)
+    selected = []
+    monkeypatch.setattr(
+        main_module,
+        "build_graph",
+        lambda: type("Graph", (), {"invoke": lambda self, state: {"evidence": []}})(),
+    )
+
+    def fail_triage(alert, evidence, provider=None):
+        selected.append(provider)
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(main_module, "triage_with_llm", fail_triage)
+
+    response = client.post(f"/cases/{case_id}/triage?provider=anthropic")
+
+    assert response.status_code == 503
+    assert selected == ["anthropic"]

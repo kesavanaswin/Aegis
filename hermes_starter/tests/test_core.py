@@ -1,8 +1,26 @@
 from agent.memory import SessionStore
+from agent.provider import OpenAICompatibleProvider
 from plugins.example_plugin import register
 from tools.builtin import calculate, register_builtins
 from tools.registry import ToolRegistry
 from tools.toolsets import SAFE_TOOLSET
+
+
+def test_provider_loads_dotenv_before_reading_api_key(monkeypatch):
+    import openai
+    import dotenv
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(
+        dotenv,
+        "load_dotenv",
+        lambda: monkeypatch.setenv("OPENAI_API_KEY", "test-key"),
+    )
+    monkeypatch.setattr(openai, "OpenAI", lambda **kwargs: kwargs)
+
+    provider = OpenAICompatibleProvider()
+
+    assert provider.client["api_key"] == "test-key"
 
 
 def test_calculator_supports_arithmetic():

@@ -9,6 +9,9 @@ class OpenAICompatibleProvider:
 
     def __init__(self, model: str | None = None, client: Any | None = None):
         if client is None:
+            from dotenv import load_dotenv
+
+            load_dotenv()
             try:
                 from openai import OpenAI
             except ImportError as exc:
